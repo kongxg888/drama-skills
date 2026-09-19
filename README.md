@@ -140,6 +140,10 @@ done
 # 4. 明确确认后投产
 用 $short-drama-produce 预览第 1 集已接受的图片、视频、TTS 或时间线音乐任务；等我确认后再执行
 
+本机真实生产的供应商路由与凭证继承规则见
+[LOCAL-PRODUCTION-ROUTING.md](LOCAL-PRODUCTION-ROUTING.md)。密钥只从导演工作台根目录的
+`.env.local` 读取，不写入本仓库或项目。
+
 # 5. 把生产出来的素材剪成成片
 用 $short-drama-edit 把第 1 集已生产的镜头剪成成片，逐段写清入出点理由
 

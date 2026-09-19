@@ -1,0 +1,18 @@
+{
+  "adapters": {
+    "runninghub-g2-image": {
+      "command": [
+        "python3",
+        "/Users/mac/Documents/ChatGPT/drama-skills-local/skills/short-drama-produce/scripts/runninghub_g2_workbench_adapter.py"
+      ],
+      "timeout_seconds": 3600
+    },
+    "minimax-h3-video": {
+      "command": [
+        "python3",
+        "/Users/mac/Documents/ChatGPT/drama-skills-local/skills/short-drama-produce/scripts/minimax_h3_workbench_adapter.py"
+      ],
+      "timeout_seconds": 3600
+    }
+  }
+}

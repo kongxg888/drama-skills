@@ -6,11 +6,20 @@ import { continueRender, delayRender } from "remotion";
  * measures correct and reads wrong.
  */
 export const waitForFonts = (): void => {
+  // The subtitle route deliberately defaults to the browser's platform
+  // `sans-serif` family. On some macOS/Chromium combinations
+  // `document.fonts.ready` never settles for platform fallback fonts, which
+  // would make Remotion time out before the first frame. There is no
+  // downloadable @font-face in this composition, so the browser can paint
+  // the requested system family synchronously.
+  if (!document.fonts || document.fonts.status !== "loading") return;
   const handle = delayRender("等待字体就绪");
-  document.fonts.ready.then(
-    () => continueRender(handle),
-    () => continueRender(handle),
-  );
+  const release = () => continueRender(handle);
+  document.fonts.ready.then(release, release);
+  // A platform fallback may keep the FontFaceSet in `loading` forever even
+  // though the browser can already render the frame. Do not hold the whole
+  // film hostage to that bookkeeping state.
+  setTimeout(release, 2000);
 };
 
 /**
@@ -24,6 +33,13 @@ let familyChecked = "";
 export const assertFamilyResolves = (fontFamily: string, sample: string): void => {
   // Runs on every frame, so measure once per family.
   if (!sample || familyChecked === fontFamily) return;
+  // Generic families intentionally resolve through the browser's platform CJK
+  // fallback. Comparing them with a deliberately missing family would report
+  // that valid fallback as absent, even though the browser can render it.
+  if (fontFamily.trim() === "sans-serif") {
+    familyChecked = fontFamily;
+    return;
+  }
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) return;

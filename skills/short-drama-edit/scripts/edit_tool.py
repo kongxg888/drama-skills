@@ -834,8 +834,7 @@ def _render_remotion_overlay(
                 "fontScale": 0.034,
                 "bottomScale": 0.055,
                 "fontFamily": (
-                    '"PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", '
-                    '"Microsoft YaHei", sans-serif'
+                    'sans-serif'
                 ),
             },
             ensure_ascii=False,

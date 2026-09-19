@@ -770,6 +770,11 @@ class ConfirmedProductionTests(unittest.TestCase):
             self.assertEqual(
                 preview["outputs"], ["剧集/EP001/制作成果/images/SHOT-EP001-001.png"]
             )
+            production_tool.confirm_job(
+                root,
+                job_id=preview["job_id"],
+                confirmation=preview["confirmation"],
+            )
 
             with self.assertRaisesRegex(ValueError, "does not match the job modality"):
                 production_tool.prepare_job(
@@ -777,6 +782,49 @@ class ConfirmedProductionTests(unittest.TestCase):
                 )
             with self.assertRaisesRegex(ValueError, "does not match the selected"):
                 production_tool.prepare_job(root, write(prompt="A different frame."))
+
+    def test_shot_keyframe_ignores_trailing_pending_video_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.make_project(directory)
+            storyboard = root / "剧集/EP001/分镜.md"
+            reference = root / "制作成果/scene.png"
+            reference.parent.mkdir(parents=True)
+            reference.write_bytes(b"scene reference")
+            declaration = (
+                "`REF-SCENE（顺序：1）· 制作成果/scene.png《场景参考》"
+                "（用途：地理；控制：空间关系；不得控制：人物动作）`"
+                "；待补参考图：本镜人物起始站位。"
+            )
+            storyboard.write_text(
+                "# EP001 分镜\n\n## SHOT-EP001-006 · 通道揭示\n"
+                f"- 输入参考图：{declaration}\n\n"
+                "### 冻结关键帧提示词\n> A corridor with a blocked exit.\n",
+                encoding="utf-8",
+            )
+            job = root / "keyframe-job.json"
+            job.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "job_id": "EP001-SHOT006-KEYFRAME",
+                        "modality": "image",
+                        "adapter": "fixture",
+                        "prompt": "A corridor with a blocked exit.",
+                        "source": "剧集/EP001/分镜.md",
+                        "source_entry": "SHOT-EP001-006",
+                        "outputs": [
+                            "剧集/EP001/制作成果/images/SHOT-EP001-006.png"
+                        ],
+                        "parameters": {"prompt_language": "en"},
+                        "overwrite": False,
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            preview = production_tool.prepare_job(root, job)
+            self.assertEqual(preview["source_entry"], "SHOT-EP001-006")
+            self.assertEqual(preview["references"], [])
 
     def test_creator_episode_runs_through_validation_confirmation_and_adapter(
         self,
@@ -1423,6 +1471,30 @@ class ConfirmedProductionTests(unittest.TestCase):
             self.assertEqual(result["state"], "succeeded")
             self.assertIsNotNone(staged_output_root)
             self.assertFalse(staged_output_root.exists())
+
+    def test_adapter_output_accepts_canonicalized_staging_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            real_root = Path(directory) / "staging-real"
+            output_root = Path(directory) / "staging-alias"
+            real_root.mkdir()
+            output_root.symlink_to(real_root, target_is_directory=True)
+            source = real_root / "adapter-output.png"
+            source.write_bytes(b"fixture output")
+            job = {"outputs": ["剧集/EP001/制作成果/image/EP001-SHOT001.png"]}
+            response = {
+                "outputs": [
+                    {
+                        "target": job["outputs"][0],
+                        "source": str(source),
+                    }
+                ]
+            }
+
+            result = production_tool._validate_adapter_outputs(
+                job, response, output_root
+            )
+
+            self.assertEqual(result, [(job["outputs"][0], source)])
 
     def test_output_created_during_provider_run_is_not_overwritten(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

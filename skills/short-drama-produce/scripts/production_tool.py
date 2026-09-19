@@ -138,6 +138,11 @@ PLAN_SLOT_RE = re.compile(
 )
 SOURCE_ENTRY_RE = re.compile(r"[A-Z][A-Z0-9-]{1,99}")
 REFERENCE_SUFFIX_RE = r"(?:png|jpe?g|webp)"
+PENDING_REFERENCE_SUFFIX_RE = re.compile(r"；待补参考图：[^；。\n]+。?$")
+# Creator-facing reference declarations may carry a terminal production note
+# after the last REF slot. It is metadata about downstream compositing, not a
+# reference binding, so strip it before validating the slot grammar.
+REFERENCE_NOTE_SUFFIX_RE = re.compile(r"；正式文字建议后期叠加或合成。?$")
 # 用途 is the creator-facing question "what does this picture decide here"; the
 # job's own `role` is its production translation. The segment is optional so a
 # declaration written before that field existed still prepares, and so the
@@ -145,7 +150,7 @@ REFERENCE_SUFFIX_RE = r"(?:png|jpe?g|webp)"
 REFERENCE_LINE_RE = re.compile(
     rf"(REF-[A-Z0-9][A-Z0-9-]{{0,79}})（顺序：([1-9]\d*)）· "
     rf"([^；\n]+?\.{REFERENCE_SUFFIX_RE})《([^》\n]+)》"
-    r"（(?:用途：[^；）\n]+；)?控制：([^；）\n]+)；不得控制：([^）\n]+)）",
+    r"（(?:用途：([^；）\n]+)；)?控制：([^；）\n]+)；不得控制：([^）\n]+)）",
     re.IGNORECASE,
 )
 
@@ -827,7 +832,9 @@ def _markdown_reference_bindings(
         raise ValueError(f"source entry has no {field_name} declaration")
     if len(lines) != 1:
         raise ValueError(f"source entry has duplicate {field_name} declarations")
-    value = lines[0].strip()
+    # Creator Markdown commonly wraps each REF slot in inline code markers;
+    # they are presentation syntax, not part of the binding grammar.
+    value = lines[0].strip().replace("`", "")
     if (
         field_name == "输入参考图"
         and not _contains_ref_token(value)
@@ -855,6 +862,15 @@ def _markdown_reference_bindings(
         value = PLAN_SLOT_RE.sub("", value).strip("；;。 ")
         if not value:
             return []
+    # A storyboard keyframe job renders the shot's own frozen image. Its
+    # existing REF entries are creative context, while a trailing pending
+    # note records other inputs that are still missing for the later video
+    # stage. Do not make that note look like a malformed REF slot here.
+    if creator_supplied_ok:
+        value = PENDING_REFERENCE_SUFFIX_RE.sub("", value).strip("；;。 ")
+        if not value:
+            return []
+    value = REFERENCE_NOTE_SUFFIX_RE.sub("", value).strip("；;。 ")
     matches = list(REFERENCE_LINE_RE.finditer(value))
     if not matches:
         raise ValueError("source entry input-reference declaration is invalid")
@@ -872,8 +888,11 @@ def _markdown_reference_bindings(
             "order": int(match.group(2)),
             "path": _relative_path(match.group(3)),
             "label": match.group(4).strip(),
-            "may_control": _scope_items(match.group(5)),
-            "must_not_control": _scope_items(match.group(6)),
+            # Older creator declarations did not expose 用途. Keep those
+            # declarations readable; newer declarations bind it directly.
+            "role": (match.group(5) or "").strip(),
+            "may_control": _scope_items(match.group(6)),
+            "must_not_control": _scope_items(match.group(7)),
         }
         for match in matches
     ]
@@ -902,18 +921,33 @@ def _verify_markdown_source(
         # reference field records creative intent, not this job's inputs.
         creator_supplied_ok=source_path.name == "分镜.md",
     )
+    if source_path.name == "分镜.md" and not bindings:
+        return
+    comparable_keys = (
+        "slot_id",
+        "order",
+        "path",
+        "label",
+        "role",
+        "may_control",
+        "must_not_control",
+    )
+    # Preserve the pre-role grammar for old Markdown, but require exact role
+    # equality whenever the creator declaration includes 用途.
+    has_declared_roles = all(binding.get("role") for binding in declared)
+    if not has_declared_roles and any(binding.get("role") for binding in declared):
+        raise ValueError("source entry input-reference declaration is invalid")
+    if not has_declared_roles:
+        comparable_keys = tuple(key for key in comparable_keys if key != "role")
     comparable = [
-        {key: binding[key] for key in (
-            "slot_id",
-            "order",
-            "path",
-            "label",
-            "may_control",
-            "must_not_control",
-        )}
+        {key: binding[key] for key in comparable_keys}
         for binding in bindings
     ]
-    if declared != comparable:
+    declared_comparable = [
+        {key: binding[key] for key in comparable_keys}
+        for binding in declared
+    ]
+    if declared_comparable != comparable:
         raise ValueError("job reference bindings do not match the selected source entry")
 
 
@@ -1093,12 +1127,19 @@ def _validate_stored_job(
         or source is None
     ):
         raise ValueError("stored job source entry is invalid")
-    expected_entry_prefix = {"image": "IMG-", "video": "MOTION-"}.get(
-        str(modality)
-    )
+    expected_entry_prefixes = {
+        "image": ("IMG-",),
+        "video": ("MOTION-",),
+    }.get(str(modality), ())
+    if (
+        str(modality) == "image"
+        and isinstance(source, str)
+        and PurePosixPath(source).name == "分镜.md"
+    ):
+        expected_entry_prefixes = ("SHOT-",)
     if source_entry is not None and (
-        expected_entry_prefix is None
-        or not source_entry.startswith(expected_entry_prefix)
+        not expected_entry_prefixes
+        or not any(source_entry.startswith(prefix) for prefix in expected_entry_prefixes)
     ):
         raise ValueError("stored job source entry has the wrong modality")
     creator_source_modality = _canonical_creator_source_modality(
@@ -1389,6 +1430,7 @@ def _run_adapter(command: list[str], timeout: int, payload: Mapping[str, Any], r
 def _validate_adapter_outputs(
     job: Mapping[str, Any], response: Mapping[str, Any], output_root: Path
 ) -> list[tuple[str, Path]]:
+    canonical_output_root = output_root.resolve()
     entries = response.get("outputs")
     if not isinstance(entries, list) or not all(isinstance(entry, Mapping) for entry in entries):
         raise AdapterError("adapter outputs are invalid; confirmation was consumed")
@@ -1401,7 +1443,11 @@ def _validate_adapter_outputs(
         if not isinstance(target, str) or not isinstance(source, str):
             raise AdapterError("adapter output paths are invalid; confirmation was consumed")
         path = Path(source)
-        if not path.is_absolute() or path.parent != output_root or path.name in {"", ".", ".."}:
+        if (
+            not path.is_absolute()
+            or path.resolve().parent != canonical_output_root
+            or path.name in {"", ".", ".."}
+        ):
             raise AdapterError(
                 "adapter output must use the run staging directory; confirmation was consumed"
             )

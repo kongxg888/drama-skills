@@ -24,6 +24,10 @@ license: MIT
 - **镜头瞬态**：姿势、视线、左右手、站位和相机角度，由分镜拥有；
 - **故事语义**：知识、目标、关系和情绪由写作/开发拥有，只引用可见后果。
 
+长期复用的地点/空间默认绑定 `scene-space-master`，长期复用的关键道具默认绑定
+`prop-two-panel-master`；两者都使用 RunningHub G2、4K、横向 16:9 的默认生产投影。
+只在本集或单镜出现一两次的场景/道具不建立独立母版，保留为 `prompt_only` 的镜头级约束。
+
 ## 工作流
 
 1. 只读当前范围的剧本和已决定的视觉方向。
@@ -59,7 +63,9 @@ license: MIT
 - 新身份、复用、变体或未决：[身份与变体](references/identity-vs-variant.md)
 - 人物识别与造型层次：[人物与造型](references/character-and-look.md)
 - 地点地理、视图和固定锚点：[地点与视图](references/location-and-view.md)
+- 地点/空间默认生图模板：[场景空间母版默认](../short-drama-image-prompts/references/scene-space-master-default.md)
 - 功能道具、所有权、状态变化，或画面上的可读文字与标识：[道具与状态](references/prop-and-state.md)
+- 关键道具默认生图模板：[道具二宫格母版默认](../short-drama-image-prompts/references/prop-two-panel-master-default.md)
 - 声音参考的身份与授权边界：[声音方向](references/voice-direction.md)
 - 跨场、跨镜、跨集状态：[连续性变化](references/continuity-delta.md)
 - 跨镜服装/道具颜色、材质漂移：[跨镜一致性锁](references/continuity-lock.md)

@@ -10,6 +10,15 @@ license: MIT
 `$short-drama-image-prompts`，视频提示词归 `$short-drama-video-prompts`，台词与录音表归
 `$short-drama-write`，声音身份归 `$short-drama-assets`。
 
+在本机执行真实媒体生产前，先读取本套件仓库根目录的
+[`LOCAL-PRODUCTION-ROUTING.md`](../../LOCAL-PRODUCTION-ROUTING.md)。它规定本机图片固定走
+RunningHub 国际站 G2、视频固定走 MiniMax H3，以及凭证只从导演工作台根目录 `.env.local`
+继承。若本机规则与临时 adapter、旧 OpenClaw 配置或聊天里的历史路径冲突，以该文件为准；
+找不到或无法验证配置时停止，不猜测、不切换旧账号。
+
+生成结果发现问题时，按 `$short-drama` 的“剧本到生产的联动回流”规则
+回到对应 owner；生产 adapter 不负责替上游改剧本、分镜或提示词。
+
 ## Quick Start
 
 只在用户明确要求实际生成后，从当前 `图片提示词.md`、`分镜.md` 或 `视频提示词.md` 中
@@ -36,6 +45,41 @@ python3 {技能目录}/scripts/production_tool.py prepare <project> --job <临�
 
 先展示 `prepare` 的完整预览；此时不会调用供应商。
 
+## 图片批量生产
+
+图片资产默认使用批量编排脚本
+[`scripts/image_batch.py`](scripts/image_batch.py)。它把多个独立的 `image` job
+合并为一次可审阅的批次：实际有几项就提交几项，不补空任务，最多 80 项；8 项就并行 8 项，
+10 项就并行 10 项。每个子任务仍遵守本技能的单图 adapter 契约，因此现有“一任务一张图”的
+RunningHub adapter 也可以直接并行使用。
+
+批次必须先生成完整预览，再用一个批次确认串确认，最后并行执行：
+
+```text
+python3 <技能目录>/scripts/image_batch.py prepare <project> --manifest <image-batch.json>
+python3 <技能目录>/scripts/image_batch.py confirm <project> --batch-id <id> --confirmation "CONFIRM-BATCH <id> <code>"
+python3 <技能目录>/scripts/image_batch.py run <project> --batch-id <id> --adapter-config <outside-project-config.json>
+```
+
+清单中的 job 必须全部是图片、使用同一个 adapter、每项只有一个图片输出；人物、场景、道具和
+空间可以放在同一图片批次里。图片批次不混入视频、配音或音乐。并行上限是 80，不代表供应商
+一定接受 80 个同时请求；限流或失败时保留每个子任务的独立记录，不自动重投。
+
+## MiniMax H3 视频滚动并行
+
+同一批已确认的视频 job 不按固定批次等待。默认维护最多 4 个活动提交：先启动队列前 4 个；任一 job
+进入终态（成功或已确认失败）并释放槽位后，立即从剩余队列补入下一个，直到队列为空。新 job 只能来自
+本批已经展示预览并完成 `confirm` 的 job；滚动补位不能绕过确认闸门、扩大用户预算或启动未确认的下一批。
+
+- **成功**：记录输出并立即补位。
+- **失败但已有 provider task ID**：先对原任务执行 `collect`，不得直接 `run` 重投；确认 provider 任务已
+  终止或已成功回收后，才释放该槽位。
+- **失败且没有 provider task ID**：确认已消耗，不自动重投；记录具体错误并用下一条已确认 job 补位。
+  重试该镜头必须重新 `prepare`、展示预览并取得新的确认。若错误显示凭证、adapter 配置或供应商服务是
+  共享故障，暂停整个滚动队列并报告，不继续制造连锁扣费。
+- 滚动调度只改变等待方式，不改变每个 job 独立的运行记录、输出核对和 `audit` 要求；队列结束后汇报
+  成功、可 `collect`、失败待重新确认和未启动的 job。
+
 ## 硬闸门
 
 每次生产都必须经过以下四步，顺序不可合并：
@@ -49,8 +93,9 @@ python3 {技能目录}/scripts/production_tool.py prepare <project> --job <临�
 4. 运行 `run`。它会在启动 adapter 前消费一次确认；成功或失败后再次执行都必须重新确认，
    防止失败重试意外产生第二笔费用。
 
-job、prompt、参数、输出路径或直接输入任一变化，旧确认立即失效。不得代替创作者填写确认。
-当前已确认 job 是本轮唯一工作单元；运行结束后回报结果并交还控制权，不自动准备下一批或启动审查。
+job、prompt、参数、输出路径、直接输入或其上游剧本/分镜任一变化，旧确认立即失效；相关 job 标记为
+`stale/已过期`，不得代替创作者填写新的确认。
+当前已确认 job 或图片批次是本轮唯一工作单元；运行结束后回报结果并交还控制权，不自动准备下一批或启动审查。
 
 `分镜.md` 的「输入参考图」路径只是创作阶段的可读依据与使用意图，不是生产输入快照。进入生产时，
 creator-first job 必须从 `图片提示词.md` 或 `视频提示词.md` 的对应条目建立绑定；`prepare` 展示的
@@ -61,6 +106,14 @@ creator-first job 必须从 `图片提示词.md` 或 `视频提示词.md` 的对
 旧 job 仍可按原指纹读取。
 新生产结果不自动回填或刷新分镜；需要把它改为后续输入时，由分镜 owner 修订文档，再建立新 job
 并重新预览、确认。
+
+生产观察不能直接写回创作文档。先判断：
+
+- 只涉及提示词表达、发声、构图、参考图用途或限制条件：回到图片/视频提示词 owner；
+- 涉及镜头动作、时长、起点、终点、空间或连续性：回到分镜 owner；
+- 涉及台词、标点、人物意图、因果或剧本事实：回到剧本 owner。
+
+上游修订完成后，重新建立受影响的 job；已提交并计费的任务只允许 `collect/领取结果`，不能把它当作新版本直接重投。
 
 ## 命令
 
@@ -103,8 +156,8 @@ python3 <本技能目录>/scripts/production_tool.py audit <project>
   不携带歌词。供应商不能精确承诺时长时，生成源音轨后仍由 `$short-drama-edit` 按文档里的混音意图完成落点、
   循环、淡入淡出和对白 ducking。
 
-一个 job 不混合 modality。大批量工作拆成创作者能看清数量和成本边界的小 job；不为方便把整季
-隐式塞进一次确认。
+一个 job 不混合 modality。图片大批量工作用上面的图片批次包装多个单图 job，创作者看到全部
+任务后只确认一次；不为方便把整季的不同 modality 隐式塞进一次确认。
 
 ## Adapter 边界
 
