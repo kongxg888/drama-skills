@@ -18,6 +18,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+
+MINIMUM_PYTHON = (3, 9)
+if sys.version_info < MINIMUM_PYTHON:
+    raise RuntimeError("short-drama-produce image_batch needs Python 3.9 or newer")
+
 try:
     import production_tool
 except ModuleNotFoundError:  # pragma: no cover - supports direct module loading

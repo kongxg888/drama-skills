@@ -20,7 +20,8 @@
 
 ## 默认人物身份母版
 
-正式人物身份母版默认使用[四视图母版规则](../../short-drama-image-prompts/references/character-identity-master-default.md)：
+正式人物身份母版默认使用 `$short-drama-image-prompts` 的
+`character-identity-master-default.md` 四视图母版规则：
 一张无缝横向画布，左侧正面身体视图、中间背面身体视图（均从锁骨以下裁切）以及右上正面、
 右下右 45 度头部近景；无文字、Logo、水印、边框、分隔线、拼贴缝、留白和剧情场景。
 

@@ -21,8 +21,12 @@ from pathlib import Path
 from typing import Any
 
 
+MINIMUM_PYTHON = (3, 9)
+if sys.version_info < MINIMUM_PYTHON:
+    raise RuntimeError("MiniMax H3 adapter needs Python 3.9 or newer")
+
 PROVIDER = "minimax-h3-video"
-WORKBENCH_ENV = Path("/Users/mac/Documents/ChatGPT/AI短视频导演工作台/.env.local")
+WORKBENCH_ENV_VARIABLE = "DRAMA_WORKBENCH_ENV"
 MAX_REFERENCE_BYTES = 50 * 1024 * 1024
 MAX_OUTPUT_BYTES = 512 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
@@ -63,14 +67,22 @@ class H3Failure(RuntimeError):
 
 
 def _dotenv() -> dict[str, str]:
-    if not WORKBENCH_ENV.is_file():
+    raw_path = os.environ.get(WORKBENCH_ENV_VARIABLE, "").strip()
+    if not raw_path:
+        raise H3Failure(
+            "registered workbench environment is not configured",
+            category="configuration",
+            code="missing_workbench_env",
+        )
+    workbench_env = Path(raw_path).expanduser()
+    if not workbench_env.is_file():
         raise H3Failure(
             "registered workbench environment is missing",
             category="configuration",
             code="missing_workbench_env",
         )
     values: dict[str, str] = {}
-    for raw_line in WORKBENCH_ENV.read_text(encoding="utf-8").splitlines():
+    for raw_line in workbench_env.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue

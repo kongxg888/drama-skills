@@ -29,3 +29,6 @@ maintainers/evals/
 # Local reruns and provider-generated artifacts; keep curated regression fixtures separate.
 /evaluations/让你管账号/reference-run-0.6.6/
 /evaluations/local-runs/
+
+# Machine-specific provider commands and paths stay outside the public skill suite.
+/local/production-adapters.json

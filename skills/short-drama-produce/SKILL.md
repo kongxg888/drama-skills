@@ -10,11 +10,9 @@ license: MIT
 `$short-drama-image-prompts`，视频提示词归 `$short-drama-video-prompts`，台词与录音表归
 `$short-drama-write`，声音身份归 `$short-drama-assets`。
 
-在本机执行真实媒体生产前，先读取本套件仓库根目录的
-[`LOCAL-PRODUCTION-ROUTING.md`](../../LOCAL-PRODUCTION-ROUTING.md)。它规定本机图片固定走
-RunningHub 国际站 G2、视频固定走 MiniMax H3，以及凭证只从导演工作台根目录 `.env.local`
-继承。若本机规则与临时 adapter、旧 OpenClaw 配置或聊天里的历史路径冲突，以该文件为准；
-找不到或无法验证配置时停止，不猜测、不切换旧账号。
+本技能不绑定供应商或本机路径。真实媒体生产前，读取调用方提供的外部 adapter 配置和凭证规则；
+若本仓库另有本机路由说明，先读取仓库根目录的 `LOCAL-PRODUCTION-ROUTING.md`。找不到或无法验证
+配置时停止，不猜测、不切换旧账号。
 
 生成结果发现问题时，按 `$short-drama` 的“剧本到生产的联动回流”规则
 回到对应 owner；生产 adapter 不负责替上游改剧本、分镜或提示词。

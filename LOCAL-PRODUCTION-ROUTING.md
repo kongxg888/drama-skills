@@ -11,11 +11,15 @@
 
 ## 凭证继承
 
-供应商凭证只从导演工作台根目录读取：
+供应商凭证只从外部工作台环境文件读取。运行 adapter 前设置：
 
 ```text
-/Users/mac/Documents/ChatGPT/AI短视频导演工作台/.env.local
+DRAMA_WORKBENCH_ENV=/path/to/导演工作台/.env.local
+RUNNINGHUB_HELPER_SCRIPTS=/path/to/runninghub/scripts
 ```
+
+这里的两个路径只存在于本机 shell 环境，不写进仓库、项目文件或 adapter 配置。当前电脑的实际路径
+由本机维护者设置；换电脑时重新设置，不修改通用 Skill。
 
 RunningHub 国际站使用以下字段，字段名必须保持不变；这里只记录字段名，不记录密钥值：
 
@@ -27,19 +31,18 @@ RUNNINGHUB_G2_PATH
 
 禁止从旧的 OpenClaw 配置、临时缓存、项目目录、聊天记录或历史 adapter 配置读取密钥。也禁止把密钥复制到本仓库、项目文件、批次 JSON、Markdown、日志或回复中。
 
-本机 RunningHub G2 的长期 adapter 配置位于：
+本机 RunningHub G2 的长期 adapter 配置应位于项目外，并通过 `--adapter-config` 传入：
 
 ```text
-/Users/mac/Documents/ChatGPT/drama-skills-local/local/production-adapters.json
+<项目外目录>/production-adapters.json
 ```
 
-它只保存可执行入口和超时，不保存凭证；入口脚本位于
-`skills/short-drama-produce/scripts/runninghub_g2_workbench_adapter.py`，运行时读取上述工作台
-`.env.local`。不要再把它替换成 `/tmp` 下的一次性 adapter。
+它只保存可执行入口和超时，不保存凭证；入口脚本可以使用本仓库中的可选 adapter，运行时读取上述
+环境变量。不要把包含本机绝对路径的配置提交到公共仓库。
 
 ## 执行前检查
 
-1. 确认上述 `.env.local` 存在，并且 adapter 明确加载它。
+1. 确认 `DRAMA_WORKBENCH_ENV` 指向的 `.env.local` 存在，并且 adapter 明确加载它。
 2. 运行供应商连通性检查，确认使用的是国际站配置；检查失败时停止，不切换到旧配置，也不提交任务。
 3. 生产仍必须遵守 `prepare -> explicit confirm -> run`；确认失败、配置变化或任务内容变化后必须重新确认。
 4. adapter 可以放在项目外，但不能只依赖 `/tmp` 临时文件。长期复用的入口、说明和加载逻辑必须能从本仓库找到。

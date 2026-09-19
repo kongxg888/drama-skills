@@ -63,9 +63,9 @@ license: MIT
 - 新身份、复用、变体或未决：[身份与变体](references/identity-vs-variant.md)
 - 人物识别与造型层次：[人物与造型](references/character-and-look.md)
 - 地点地理、视图和固定锚点：[地点与视图](references/location-and-view.md)
-- 地点/空间默认生图模板：[场景空间母版默认](../short-drama-image-prompts/references/scene-space-master-default.md)
+- 地点/空间默认生图模板：需要图片提示词时转交 `$short-drama-image-prompts`，读取其 `scene-space-master-default.md`
 - 功能道具、所有权、状态变化，或画面上的可读文字与标识：[道具与状态](references/prop-and-state.md)
-- 关键道具默认生图模板：[道具二宫格母版默认](../short-drama-image-prompts/references/prop-two-panel-master-default.md)
+- 关键道具默认生图模板：需要图片提示词时转交 `$short-drama-image-prompts`，读取其 `prop-two-panel-master-default.md`
 - 声音参考的身份与授权边界：[声音方向](references/voice-direction.md)
 - 跨场、跨镜、跨集状态：[连续性变化](references/continuity-delta.md)
 - 跨镜服装/道具颜色、材质漂移：[跨镜一致性锁](references/continuity-lock.md)

@@ -154,6 +154,19 @@ REFERENCE_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+CREATOR_ROLE_TO_JOB_ROLE = {
+    "身份": "identity_and_look",
+    "造型状态": "look_and_state",
+    "地理": "location",
+    "构图": "composition",
+    "尺度": "scale",
+    "效果": "effect",
+    "起始帧": "first_frame",
+    "结束帧": "last_frame",
+    "风格": "style",
+    "全参考": "reference_image",
+}
+
 
 class ConfirmationRequiredError(RuntimeError):
     """The exact current job has not been explicitly confirmed."""
@@ -822,6 +835,11 @@ def _contains_plan_token(value: str) -> bool:
     return "plan-" in value.casefold()
 
 
+def _canonical_creator_role(value: str) -> str:
+    role = value.strip()
+    return CREATOR_ROLE_TO_JOB_ROLE.get(role, role)
+
+
 def _markdown_reference_bindings(
     section: str, *, field_name: str, creator_supplied_ok: bool = False
 ) -> list[dict[str, Any]]:
@@ -890,7 +908,7 @@ def _markdown_reference_bindings(
             "label": match.group(4).strip(),
             # Older creator declarations did not expose 用途. Keep those
             # declarations readable; newer declarations bind it directly.
-            "role": (match.group(5) or "").strip(),
+            "role": _canonical_creator_role(match.group(5) or ""),
             "may_control": _scope_items(match.group(6)),
             "must_not_control": _scope_items(match.group(7)),
         }

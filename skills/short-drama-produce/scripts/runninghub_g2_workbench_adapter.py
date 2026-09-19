@@ -14,15 +14,23 @@ import uuid
 from pathlib import Path
 
 
-WORKBENCH_ENV = Path("/Users/mac/Documents/ChatGPT/AI短视频导演工作台/.env.local")
-RUNNINGHUB_HELPER = Path("/Users/mac/.codex/skills/runninghub/scripts")
+MINIMUM_PYTHON = (3, 9)
+if sys.version_info < MINIMUM_PYTHON:
+    raise RuntimeError("RunningHub G2 adapter needs Python 3.9 or newer")
+
+WORKBENCH_ENV_VARIABLE = "DRAMA_WORKBENCH_ENV"
+RUNNINGHUB_HELPER_VARIABLE = "RUNNINGHUB_HELPER_SCRIPTS"
 ENDPOINT = "rhart-image-g-2/image-to-image"
 
 
 def load_workbench_runninghub_env() -> None:
-    if not WORKBENCH_ENV.is_file():
-        return
-    for line in WORKBENCH_ENV.read_text(encoding="utf-8").splitlines():
+    raw_path = os.environ.get(WORKBENCH_ENV_VARIABLE, "").strip()
+    if not raw_path:
+        raise RuntimeError("registered workbench environment is not configured")
+    workbench_env = Path(raw_path).expanduser()
+    if not workbench_env.is_file():
+        raise RuntimeError("registered workbench environment is missing")
+    for line in workbench_env.read_text(encoding="utf-8").splitlines():
         value = line.strip()
         if not value or value.startswith("#") or "=" not in value:
             continue
@@ -33,10 +41,17 @@ def load_workbench_runninghub_env() -> None:
         elif key == "RUNNINGHUB_INTL_API_KEY":
             os.environ["RUNNINGHUB_API_KEY"] = raw
 
+def load_runninghub_helper():
+    raw_path = os.environ.get(RUNNINGHUB_HELPER_VARIABLE, "").strip()
+    if not raw_path:
+        raise RuntimeError("RunningHub helper scripts are not configured")
+    helper = Path(raw_path).expanduser()
+    if not helper.is_dir():
+        raise RuntimeError("RunningHub helper scripts are missing")
+    sys.path.insert(0, str(helper))
+    import importlib
 
-load_workbench_runninghub_env()
-sys.path.insert(0, str(RUNNINGHUB_HELPER))
-import runninghub as rh  # noqa: E402
+    return importlib.import_module("runninghub")
 
 
 def write_handle(path: str, task_id: str) -> None:
@@ -50,6 +65,8 @@ def write_handle(path: str, task_id: str) -> None:
 
 
 def main() -> int:
+    load_workbench_runninghub_env()
+    rh = load_runninghub_helper()
     job = json.load(sys.stdin.buffer)
     project_root = Path(job["project_root"])
     output_root = Path(job["output_root"])

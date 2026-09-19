@@ -78,7 +78,10 @@ EXPECTED_KNOWHOW = {
         "lookdev-frame.md",
         "production-sheet-recipes.md",
         "prop-plate.md",
+        "character-identity-master-default.md",
+        "prop-two-panel-master-default.md",
         "review-and-fixtures.md",
+        "scene-space-master-default.md",
         "stage-contract.md",
     },
     "short-drama-storyboard": {
